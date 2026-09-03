@@ -1,0 +1,67 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #1e1e1e;
+  color: #e4e4e4;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.app h2 {
+  margin-bottom: 1rem;
+}
+
+.run-btn {
+  background: #2ea043;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.run-btn:disabled {
+  background: #444;
+  cursor: not-allowed;
+}
+
+.editor-wrap {
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.output-label {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+}
+
+.output-box {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 2rem;
+}
+
+.output-box.stderr {
+  border-color: #663333;
+  color: #ff8080;
+}

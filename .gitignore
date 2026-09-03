@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Env / secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Code actually executed by the runner — ephemeral, regenerated per run
+server/workspace/*
+!server/workspace/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS junk
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

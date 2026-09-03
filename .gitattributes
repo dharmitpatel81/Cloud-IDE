@@ -1,0 +1,5 @@
+# Normalize line endings so Windows/Mac/Linux collaborators don't fight over CRLF vs LF
+* text=auto eol=lf
+
+# Diffs on lockfiles are noisy and not meant to be hand-edited
+package-lock.json -diff
