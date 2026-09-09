@@ -1,12 +1,20 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { spawn } from "node:child_process";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { runInContainer } from "./runner.js";
 
-const app = Fastify();
+// Without an explicit logger, app.log is a no-op and every error we "log" is discarded.
+const app = Fastify({ logger: true, requestTimeout: 30000 });
 await app.register(cors, { origin: "http://localhost:5173" });
+
+// Never let a raw error (host paths, docker socket errors, stack traces)
+// reach the browser — the program's stderr is the product, ours isn't.
+app.setErrorHandler((error, _request, reply) => {
+  app.log.error(error);
+  reply.status(500).send({ error: "Something went wrong running your code." });
+});
 
 const WORKSPACE_DIR = path.join(process.cwd(), "workspace");
 await mkdir(WORKSPACE_DIR, { recursive: true });
@@ -18,16 +26,12 @@ app.post("/run", async (request, reply) => {
   const filepath = path.join(WORKSPACE_DIR, filename);
   await writeFile(filepath, code);
 
-  const result = await new Promise<{ stdout: string; stderr: string }>((resolve) => {
-    const proc = spawn("python", [filepath]);
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (d) => (stdout += d.toString()));
-    proc.stderr.on("data", (d) => (stderr += d.toString()));
-    proc.on("close", () => resolve({ stdout, stderr }));
-  });
-
-  return result;
+  try {
+    const result = await runInContainer(filepath);
+    return result;
+  } finally {
+    await unlink(filepath).catch(() => {});
+  }
 });
 
 app.listen({ port: 3001, host: "127.0.0.1" }, (err) => {

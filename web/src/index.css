@@ -65,3 +65,13 @@ body {
   border-color: #663333;
   color: #ff8080;
 }
+
+.error-banner {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #8a5a1a;
+  border-radius: 6px;
+  background: #2a1d0c;
+  color: #ffcc80;
+  font-size: 0.9rem;
+}
