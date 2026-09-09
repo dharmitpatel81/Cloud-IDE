@@ -23,6 +23,10 @@ function App() {
       const data = await res.json();
       setStdout(data.stdout);
       setStderr(data.stderr);
+      if (data.timedOut) {
+        setStderr((prev) => prev + "\n[killed: exceeded 5s time limit]");
+      }
+
     } finally {
       setRunning(false);
     }
