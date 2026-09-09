@@ -33,6 +33,13 @@ function App() {
       setStderr(data.stderr);
       if (data.timedOut) {
         setStderr((prev) => prev + "\n[killed: exceeded 5s time limit]");
+      } else if (data.exitCode === 137) {
+        // SIGKILL with no stderr is almost always the kernel enforcing --memory.
+        setStderr(
+          (prev) => prev + "\n[killed: exit 137, likely exceeded the 128MB memory limit]",
+        );
+      } else if (data.exitCode) {
+        setStderr((prev) => prev + `\n[exited with code ${data.exitCode}]`);
       }
     } catch {
       setError("Could not reach the server. Is it running on port 3001?");

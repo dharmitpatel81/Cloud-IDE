@@ -62,34 +62,42 @@ async function killContainer(container: Docker.Container) {
 
 export async function runInContainer(
   hostFilePath: string,
-): Promise<{ stdout: string; stderr: string; timedOut: boolean }> {
-  const container = await withTimeout(
-    docker.createContainer({
-      Image: RUNNER_IMAGE,
-      // -u: unbuffered stdout/stderr, so a killed script's output isn't lost
-      // sitting in a buffer it never got to flush.
-      Cmd: ["python", "-u", "/home/runner/script.py"],
-      AttachStdout: true,
-      AttachStderr: true,
-      Labels: { "cloud-ide.owner": "runner" },
-      HostConfig: {
-        Memory: 128 * 1024 * 1024,
-        NanoCpus: 0.5 * 1e9,
-        PidsLimit: 64,
-        ReadonlyRootfs: true,
-        Tmpfs: { "/tmp": "size=16m,mode=1777,noexec,nosuid" },
-        CapDrop: ["ALL"],
-        SecurityOpt: ["no-new-privileges"],
-        NetworkMode: "none",
-        Binds: [`${hostFilePath}:/home/runner/script.py:ro`],
-      },
-    }),
-    "createContainer",
-  );
+): Promise<{ stdout: string; stderr: string; timedOut: boolean; exitCode: number | null }> {
+  const creating = docker.createContainer({
+    Image: RUNNER_IMAGE,
+    // -u: unbuffered stdout/stderr, so a killed script's output isn't lost
+    // sitting in a buffer it never got to flush.
+    Cmd: ["python", "-u", "/home/runner/script.py"],
+    AttachStdout: true,
+    AttachStderr: true,
+    Labels: { "cloud-ide.owner": "runner" },
+    HostConfig: {
+      Memory: 128 * 1024 * 1024,
+      NanoCpus: 0.5 * 1e9,
+      PidsLimit: 64,
+      ReadonlyRootfs: true,
+      Tmpfs: { "/tmp": "size=16m,mode=1777,noexec,nosuid" },
+      CapDrop: ["ALL"],
+      SecurityOpt: ["no-new-privileges"],
+      NetworkMode: "none",
+      Binds: [`${hostFilePath}:/home/runner/script.py:ro`],
+    },
+  });
+
+  const container = await withTimeout(creating, "createContainer").catch((err) => {
+    // Giving up on the call doesn't cancel it — if the create lands afterwards
+    // we never get the handle, so reap it here or it's orphaned for good.
+    creating.then(
+      (late) => late.remove({ force: true }).catch(() => {}),
+      () => {},
+    );
+    throw err;
+  });
 
   const stdout = createCappedSink();
   const stderr = createCappedSink();
   let timedOut = false;
+  let exitCode: number | null = null;
   let deadline: NodeJS.Timeout | undefined;
   let waitCeiling: NodeJS.Timeout | undefined;
 
@@ -111,12 +119,13 @@ export async function runInContainer(
 
     // Bound the whole wait, independent of whether stop()/kill() themselves
     // misbehave — the request always returns, even if the kill didn't.
-    await Promise.race([
-      container.wait(),
-      new Promise((resolve) => {
-        waitCeiling = setTimeout(resolve, TIMEOUT_MS + KILL_GRACE_MS);
+    const finished = await Promise.race([
+      container.wait() as Promise<{ StatusCode: number }>,
+      new Promise<undefined>((resolve) => {
+        waitCeiling = setTimeout(() => resolve(undefined), TIMEOUT_MS + KILL_GRACE_MS);
       }),
     ]);
+    exitCode = finished?.StatusCode ?? null;
   } finally {
     if (deadline) clearTimeout(deadline);
     if (waitCeiling) clearTimeout(waitCeiling);
@@ -127,5 +136,5 @@ export async function runInContainer(
     });
   }
 
-  return { stdout: stdout.text(), stderr: stderr.text(), timedOut };
+  return { stdout: stdout.text(), stderr: stderr.text(), timedOut, exitCode };
 }
