@@ -1,4 +1,5 @@
 # 0002 — A hung script leaks a container forever
+Date: 2026-09-09 · Phase: 2
 
 **Built:** Moved code execution off bare `child_process.spawn` and into Docker.
 Every `/run` request creates a fresh container from a digest-pinned
@@ -13,7 +14,7 @@ alive and spinning. Killed it by hand, clicked Run again with the same code,
 got a second stuck container. Nothing about the setup would ever stop this on
 its own, the container just runs until someone notices and kills it manually.
 
-**The number:** Two hangs, two leaked containers, zero self-cleanup. A 100%
+**Measured:** Two hangs, two leaked containers, zero self-cleanup. A 100%
 leak rate on anything that doesn't finish by itself. Separately, timed a
 normal container run at about 1.1 seconds of pure startup overhead before the
 script even executes, worth remembering since that's now the cost every

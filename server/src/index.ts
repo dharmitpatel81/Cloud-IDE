@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { runInContainer } from "./runner.js";
 
-const app = Fastify();
+// Without an explicit logger, app.log is a no-op and every error we "log" is discarded.
+const app = Fastify({ logger: true, requestTimeout: 30000 });
 await app.register(cors, { origin: "http://localhost:5173" });
 
 // Never let a raw error (host paths, docker socket errors, stack traces)

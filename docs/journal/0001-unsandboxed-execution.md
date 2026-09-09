@@ -1,4 +1,5 @@
 # 0001 — Unsandboxed execution reads anything on the host
+Date: 2026-09-08 · Phase: 1
 
 **Built:** A Fastify server with one route, `POST /run`. It takes code from the
 browser, writes it to a file in `server/workspace/`, and runs it with a plain
@@ -16,7 +17,7 @@ It printed the file. No error, no permission prompt, nothing. Same thing works
 for anything else the local Windows account can read — SSH keys, other
 projects, whatever.
 
-**The number:** Zero. That's how many access checks stand between "text typed
+**Measured:** Zero. That's how many access checks stand between "text typed
 in a browser tab" and "read any file my user account can read." Not
 partial protection, not filtered, actually zero.
 
