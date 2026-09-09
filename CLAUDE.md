@@ -99,7 +99,7 @@ rate, sync latency p95, cost per workspace-hour. Load test. Runbooks.
 
 **11 — Stretch.** AI assist: explain code, suggest fixes.
 
-**Current phase: 1.** ← keep updated.
+**Current phase: 2.** ← keep updated.
 
 The shape all this converges on: a **trusted control plane** (auth, projects, orchestrator)
 that never executes user code, and an **untrusted data plane** (workspace pods) that never
