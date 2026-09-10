@@ -4,6 +4,8 @@ import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { runInContainer } from "./runner.js";
+import { attachCollabServer } from "./collab.js";
+
 
 // Without an explicit logger, app.log is a no-op and every error we "log" is discarded.
 const app = Fastify({ logger: true, requestTimeout: 30000 });
@@ -30,9 +32,11 @@ app.post("/run", async (request, reply) => {
     const result = await runInContainer(filepath);
     return result;
   } finally {
-    await unlink(filepath).catch(() => {});
+    await unlink(filepath).catch(() => { });
   }
 });
+
+attachCollabServer(app.server);
 
 app.listen({ port: 3001, host: "127.0.0.1" }, (err) => {
   if (err) {
