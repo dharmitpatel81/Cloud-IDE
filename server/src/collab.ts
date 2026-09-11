@@ -1,23 +1,18 @@
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import type { Server } from "node:http";
+// y-websocket ships its server helper as CommonJS with no type declarations.
+// @ts-expect-error
+import { setupWSConnection } from "y-websocket/bin/utils";
 
 export function attachCollabServer(server: Server) {
-  const wss = new WebSocketServer({ server, path: "/collab" });
-  const clients = new Set<WebSocket>();
+  // No `path` filter: the y-websocket client connects to /<room>, so the room
+  // name *is* the path and there's no fixed one to match.
+  const wss = new WebSocketServer({ server });
 
-  wss.on("connection", (socket) => {
-    clients.add(socket);
-
-    socket.on("message", (data) => {
-      // Naive: forward every edit to everyone else, verbatim, in arrival order.
-      for (const peer of clients) {
-        if (peer !== socket && peer.readyState === WebSocket.OPEN) {
-          peer.send(data.toString());
-        }
-      }
-    });
-
-    socket.on("close", () => clients.delete(socket));
+  wss.on("connection", (socket, request) => {
+    // Yjs owns the wire protocol now — sync steps, awareness, and the room's
+    // authoritative document all live inside this one call.
+    setupWSConnection(socket, request);
   });
 
   return wss;

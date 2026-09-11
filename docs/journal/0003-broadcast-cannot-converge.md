@@ -126,6 +126,36 @@ Liveness is an application-layer question. `y-websocket` does exactly this
 internally, which is part of why swapping to it removed work rather than
 adding it.
 
+### The same experiment, after the swap
+
+Ran the identical test against the Yjs version. Both tabs ended up with
+`BBBAAA` on line 2.
+
+| | naive broadcast | Yjs |
+|---|---|---|
+| edits delivered | 3 of 6 | 6 of 6 |
+| positions differing on line 2 | 4 of 5 | 0 |
+| documents identical afterwards | never | yes, on reconnect |
+| status during the outage | said `connected` | flipped to `connecting` |
+
+Two details worth noticing. The status indicator became honest for free,
+because y-websocket runs its own ping/pong rather than trusting
+`readyState`. And neither tab asked the server who won: both independently
+computed `BBBAAA` because a CRDT merge is deterministic and commutative, so
+every replica lands on the same result regardless of what order things
+arrived in. The interleaving isn't necessarily what either person expected,
+but each person's characters stayed contiguous and nothing was dropped.
+
+### What the swap deleted
+
+Removed entirely from the client: the `applyingRemote` flag that stopped
+edits echoing forever, the manual reconnect loop and its retry timer, the
+`onChange` handler that serialised changes to the wire, the editor ref, the
+`onmessage` dispatch, and the React `code` state that mirrored the document.
+The server went from a socket set plus a forwarding loop to a single call to
+`setupWSConnection`. Net result is less code doing strictly more, which is
+the usual sign that the previous version was fighting its own data model.
+
 ### Why patching this was never on the table
 
 The tempting fixes all fail for the same reason. Sequence numbers tell you
