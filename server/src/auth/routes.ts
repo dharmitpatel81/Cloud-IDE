@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { sessions, users } from "../db/schema.js";
@@ -8,6 +8,12 @@ import { hashPassword, verifyPassword } from "./password.js";
 
 export const SESSION_COOKIE = "sid";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// A fixed, never-matching hash to run login against when the email isn't
+// registered, so that branch pays the same scrypt cost as a real one. Without
+// this, "unknown email" answers in ~1ms and "wrong password" in ~100ms — a
+// timing oracle that reveals which emails have accounts.
+const dummyPasswordHash = hashPassword(randomBytes(32).toString("hex"));
 
 const credentials = z.object({
   email: z.email(),
@@ -39,10 +45,23 @@ export function readSessionCookie(header: string | undefined): string | undefine
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     if (part.slice(0, eq).trim() === SESSION_COOKIE) {
-      return decodeURIComponent(part.slice(eq + 1).trim());
+      try {
+        return decodeURIComponent(part.slice(eq + 1).trim());
+      } catch {
+        // A malformed value (e.g. a stray `%`) should read as "no session",
+        // not throw — the HTTP-request cookie path tolerates this too.
+        return undefined;
+      }
     }
   }
   return undefined;
+}
+
+/** Deletes session rows nobody has presented in a while. `userFromToken` only
+ *  deletes a row when that exact token is looked up again, so an abandoned
+ *  session otherwise sits in the table forever after it expires. */
+export async function cleanupExpiredSessions() {
+  await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
 }
 
 export async function userFromToken(token: string | undefined) {
@@ -77,19 +96,25 @@ export async function authRoutes(app: FastifyInstance) {
     }
     const { email, password } = parsed.data;
 
-    const existing = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    if (existing.length > 0) {
-      return reply.status(409).send({ error: "That email is already registered." });
+    // No separate "does this email exist" check first: a select-then-insert
+    // has a race where two requests for the same email can both pass the
+    // check before either inserts. The unique index is the actual guard, so
+    // the insert itself has to be the thing that decides.
+    let user: { id: string; email: string };
+    try {
+      [user] = await db
+        .insert(users)
+        .values({ email, passwordHash: await hashPassword(password) })
+        .returning({ id: users.id, email: users.email });
+    } catch (err) {
+      // Drizzle wraps the driver error in DrizzleQueryError; the real
+      // Postgres code (23505 = unique_violation) is on `.cause`, not on the
+      // error itself.
+      if ((err as { cause?: { code?: string } }).cause?.code === "23505") {
+        return reply.status(409).send({ error: "That email is already registered." });
+      }
+      throw err;
     }
-
-    const [user] = await db
-      .insert(users)
-      .values({ email, passwordHash: await hashPassword(password) })
-      .returning({ id: users.id, email: users.email });
 
     const { token, expiresAt } = await issueSession(user.id);
     setSessionCookie(reply, token, expiresAt);
@@ -111,7 +136,13 @@ export async function authRoutes(app: FastifyInstance) {
       .where(eq(users.email, email))
       .limit(1);
 
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    // Always pay the scrypt cost, even for an email that doesn't exist, so
+    // "no such user" and "wrong password" take the same amount of time.
+    const passwordOk = user
+      ? await verifyPassword(password, user.passwordHash)
+      : await verifyPassword(password, await dummyPasswordHash);
+
+    if (!user || !passwordOk) {
       return reply.status(401).send({ error: "Invalid email or password." });
     }
 

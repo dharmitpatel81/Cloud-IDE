@@ -13,7 +13,6 @@
   "type": "module",
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
-    "@fastify/cors": "^11.3.0",
     "dockerode": "^5.0.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
