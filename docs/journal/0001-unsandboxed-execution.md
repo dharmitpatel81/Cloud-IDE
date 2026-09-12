@@ -44,7 +44,7 @@ five paragraphs above are the actual journal entry per repo convention, this
 is just notes so future-me (or a friend reading this) doesn't have to
 reconstruct the reasoning from scratch.
 
-### What exists right now
+### What existed at this point (Phase 1 snapshot)
 
 Two processes on your machine, nothing else:
 

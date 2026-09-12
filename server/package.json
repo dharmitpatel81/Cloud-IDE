@@ -14,11 +14,15 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "dockerode": "^5.0.1",
-    "fastify": "^5.12.1"
+    "fastify": "^5.12.1",
+    "ws": "^8.21.3",
+    "y-websocket": "^2.1.0",
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.1",
     "@types/node": "^26.4.1",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   },
