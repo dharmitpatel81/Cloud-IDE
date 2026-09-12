@@ -32,10 +32,18 @@ function App() {
 
   useEffect(() => {
     const onStatus = (event: { status: string }) => setConnection(event.status);
+    // Without this the label reads "connecting" forever when the server is
+    // simply down — y-websocket only reports "disconnected" if it had
+    // connected at least once.
+    const onConnectionError = () => setConnection("unreachable");
+
     provider.on("status", onStatus);
+    provider.on("connection-error", onConnectionError);
     provider.connect();
+
     return () => {
       provider.off("status", onStatus);
+      provider.off("connection-error", onConnectionError);
       provider.disconnect();
     };
   }, [provider]);
@@ -82,6 +90,12 @@ function App() {
     <div className="app">
       <h2>Cloud IDE — Phase 3</h2>
       <div className="output-label">socket: {connection}</div>
+      {connection === "unreachable" && (
+        <div className="error-banner">
+          Can't reach the collaboration server. Your edits are saved locally and
+          will sync once it's back. Is the backend running on port 3001?
+        </div>
+      )}
       <button className="run-btn" onClick={runCode} disabled={running}>
         {running ? "Running..." : "Run"}
       </button>

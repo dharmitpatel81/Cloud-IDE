@@ -46,9 +46,14 @@ content is seeded once server-side rather than by whichever client arrives
 first.
 
 Not built yet: no accounts and no separate projects, so **everyone shares one
-document** (Phase 4). **Nothing persists** — restart the server and the
-document is gone (Phase 8). No authorization on the socket at all, and no
-terminal.
+document** (Phase 4). **Nothing is stored anywhere** — the document lives only
+in server memory and in whatever tabs are open, so restarting the server with
+a tab open restores it from that tab, and closing every tab loses it for good
+(Phase 8). No authorization on the socket at all, and no terminal.
+
+The editor starts empty on a genuinely fresh room. That's deliberate: seeding
+default content server-side turned out to inject it into live documents on
+every restart.
 
 ## Setup
 

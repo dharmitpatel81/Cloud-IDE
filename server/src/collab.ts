@@ -1,20 +1,15 @@
 import { WebSocketServer } from "ws";
 import type { Server } from "node:http";
-import { setupWSConnection, setContentInitializor } from "y-websocket/bin/utils";
+import { setupWSConnection } from "y-websocket/bin/utils";
 
 const ROOM = "cloud-ide";
 const ALLOWED_ORIGIN = "http://localhost:5173";
-const DEFAULT_CODE = `print("hello world")\n`;
+const MAX_PAYLOAD_BYTES = 1024 * 1024;
 
-// Runs synchronously the first time the room's document is created. Seeding
-// server-side removes the race where two clients both observe an empty doc and
-// both insert the default, and it can't resurrect the default after someone
-// legitimately deletes everything.
-setContentInitializor((doc) => {
-  const ytext = doc.getText("code");
-  if (ytext.length === 0) ytext.insert(0, DEFAULT_CODE);
-  return Promise.resolve();
-});
+// The room deliberately starts empty. Seeding default content here looks
+// harmless but injects it into live documents: a server restart builds a fresh
+// empty doc, the seed lands, and then the reconnecting client's real content
+// merges on top of it. Under `tsx watch` that fires on every server save.
 
 export function attachCollabServer(server: Server) {
   const wss = new WebSocketServer({
@@ -23,6 +18,9 @@ export function attachCollabServer(server: Server) {
     // allowlist on /run buys nothing here. Without this check, any page open
     // in the browser can read and rewrite the shared document.
     verifyClient: (info: { origin: string }) => info.origin === ALLOWED_ORIGIN,
+    // Yjs frames are binary, so they can't be schema-validated at the edge.
+    // A size cap is the only bound available; ws otherwise allows 100MB.
+    maxPayload: MAX_PAYLOAD_BYTES,
   });
 
   wss.on("error", (err) => console.error("collab server error:", err));
