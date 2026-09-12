@@ -7,18 +7,34 @@ export type RunResult = {
   exitCode: number | null;
 };
 
+/** Carries the HTTP status, so callers can tell "signed out" (401) apart
+ *  from "server down" without parsing messages. */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 /** Throws with the server's message so callers can render it directly. The
  *  server never puts internals in `error`, so this is safe to show. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
+    // Only claim a JSON body when there is one. Fastify rejects an empty body
+    // that's labelled application/json — which silently broke logout, the one
+    // POST here without a body.
+    headers: init?.body ? { "Content-Type": "application/json" } : {},
     signal: AbortSignal.timeout(30000),
+    // Every response here depends on the session cookie, so none of it is
+    // safe to cache.
+    cache: "no-store",
     ...init,
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.error ?? `Request failed (${res.status})`);
+    throw new ApiError(body?.error ?? `Request failed (${res.status})`, res.status);
   }
   return res.json() as Promise<T>;
 }

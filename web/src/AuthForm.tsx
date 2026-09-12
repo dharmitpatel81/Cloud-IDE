@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, type User } from "./api";
+import { LogoIcon } from "./icons";
 
 export function AuthForm({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -8,14 +9,14 @@ export function AuthForm({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function submit(event: React.FormEvent) {
+  const isLogin = mode === "login";
+
+  async function submit(event: { preventDefault(): void }) {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
-      const user = mode === "login"
-        ? await api.login(email, password)
-        : await api.register(email, password);
+      const user = isLogin ? await api.login(email, password) : await api.register(email, password);
       onSignedIn(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -25,53 +26,70 @@ export function AuthForm({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   }
 
   return (
-    <form className="card auth-form" onSubmit={submit}>
-      <h3>{mode === "login" ? "Sign in" : "Create an account"}</h3>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="brand brand-lg">
+          <LogoIcon /> Cloud IDE
+        </div>
+        <p className="muted auth-tagline">
+          Write and run Python in your browser. Your code stays in sync across every tab you
+          open.
+        </p>
 
-      <label>
-        Email
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          required
-        />
-      </label>
+        <form className="auth-form" onSubmit={submit}>
+          <h2>{isLogin ? "Sign in" : "Create your account"}</h2>
 
-      <label>
-        Password
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-          minLength={8}
-          required
-        />
-      </label>
+          <label className="field">
+            Email
+            <input
+              className="text-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </label>
 
-      {error && <div className="error-banner">{error}</div>}
+          <label className="field">
+            Password
+            <input
+              className="text-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              minLength={8}
+              required
+            />
+          </label>
 
-      <button className="run-btn" type="submit" disabled={busy}>
-        {busy ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
-      </button>
+          {error && <div className="error-banner">{error}</div>}
 
-      <button
-        type="button"
-        className="link-btn"
-        onClick={() => {
-          setMode(mode === "login" ? "register" : "login");
-          setError("");
-        }}
-      >
-        {mode === "login" ? "Need an account? Register" : "Already have an account? Sign in"}
-      </button>
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+            {busy ? "Working…" : isLogin ? "Sign in" : "Create account"}
+          </button>
+        </form>
 
-      <p className="hint">
-        Use a throwaway password. This project stores a scrypt hash, but it is a
-        learning build and has never been security reviewed.
-      </p>
-    </form>
+        <p className="auth-switch">
+          {isLogin ? "New here? " : "Already have an account? "}
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              setMode(isLogin ? "register" : "login");
+              setError("");
+            }}
+          >
+            {isLogin ? "Create an account" : "Sign in"}
+          </button>
+        </p>
+
+        <p className="auth-hint">
+          Use a throwaway password. Passwords are stored as scrypt hashes, but this is a learning
+          build that has never been security reviewed.
+        </p>
+      </div>
+    </div>
   );
 }

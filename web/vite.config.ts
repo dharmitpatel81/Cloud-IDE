@@ -25,6 +25,9 @@ export default defineConfig({
       "/collab": {
         target: "ws://127.0.0.1:3001",
         ws: true,
+        // Rewrites Host to 127.0.0.1:3001, which the server's DNS-rebinding
+        // check expects. It doesn't touch Origin, which is checked separately.
+        changeOrigin: true,
       },
     },
   },

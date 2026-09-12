@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Project, type User } from "./api";
+import { FolderIcon, LogoIcon, PlusIcon, SignOutIcon } from "./icons";
 
 export function ProjectsPage({
   user,
@@ -15,19 +16,18 @@ export function ProjectsPage({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function refresh() {
-    try {
-      setProjects(await api.listProjects());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load projects.");
-    }
-  }
-
   useEffect(() => {
-    refresh();
+    api.listProjects().then(setProjects, (err: unknown) =>
+      setError(err instanceof Error ? err.message : "Could not load projects."),
+    );
   }, []);
 
-  async function createProject(event: React.FormEvent) {
+  const newestFirst = useMemo(
+    () => projects && [...projects].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [projects],
+  );
+
+  async function createProject(event: { preventDefault(): void }) {
     event.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
@@ -44,51 +44,81 @@ export function ProjectsPage({
   }
 
   async function signOut() {
-    await api.logout().catch(() => {});
+    // Don't swallow a failed logout. Showing the login form while the
+    // session is still valid server-side is worse than showing an error —
+    // it looks signed out, and a refresh proves it isn't.
+    try {
+      await api.logout();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign out.");
+      return;
+    }
     onSignedOut();
   }
 
   return (
-    <div className="app">
-      <div className="topbar">
-        <h2>Your projects</h2>
-        <div className="topbar-right">
-          <span className="hint">{user.email}</span>
-          <button type="button" className="link-btn" onClick={signOut}>
-            Sign out
+    <div className="launcher">
+      <header className="launcher-bar">
+        <span className="brand">
+          <LogoIcon size={18} /> Cloud IDE
+        </span>
+        <div className="launcher-user">
+          <span className="avatar" aria-hidden="true">
+            {user.email.charAt(0).toUpperCase()}
+          </span>
+          <span>{user.email}</span>
+          <button type="button" className="btn btn-ghost" onClick={signOut}>
+            <SignOutIcon size={14} /> Sign out
           </button>
         </div>
-      </div>
+      </header>
 
-      <form className="card new-project-form" onSubmit={createProject}>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="New project name"
-          maxLength={100}
-        />
-        <button className="run-btn" type="submit" disabled={busy || !name.trim()}>
-          Create
-        </button>
-      </form>
+      <main className="launcher-main">
+        <h1>Projects</h1>
+        <p className="muted launcher-sub">
+          Each project is one Python file, synced live across every tab you open it in.
+        </p>
 
-      {error && <div className="error-banner">{error}</div>}
+        <form className="new-project" onSubmit={createProject}>
+          <input
+            className="text-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="New project name"
+            aria-label="New project name"
+            maxLength={100}
+          />
+          <button className="btn btn-primary" type="submit" disabled={busy || !name.trim()}>
+            <PlusIcon size={14} /> Create
+          </button>
+        </form>
 
-      {projects === null ? (
-        <p className="hint">Loading projects…</p>
-      ) : projects.length === 0 ? (
-        <p className="hint">No projects yet. Create one above.</p>
-      ) : (
-        <ul className="project-list">
-          {projects.map((project) => (
-            <li key={project.id}>
-              <button type="button" className="project-item" onClick={() => onOpen(project)}>
-                {project.name}
+        {error && <div className="error-banner">{error}</div>}
+
+        <h2 className="section-label">All projects</h2>
+        {newestFirst === null ? (
+          <p className="muted">Loading projects…</p>
+        ) : newestFirst.length === 0 ? (
+          <div className="empty-state">No projects yet. Create your first one above.</div>
+        ) : (
+          <div className="project-grid">
+            {newestFirst.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                className="project-card"
+                onClick={() => onOpen(project)}
+              >
+                <FolderIcon size={22} />
+                <span className="project-card-name">{project.name}</span>
+                <span className="project-card-meta">
+                  Created {new Date(project.createdAt).toLocaleDateString()}
+                </span>
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -1,128 +1,183 @@
-# Collaborative Cloud IDE
+# Cloud IDE
 
-Browser-based IDE, built phase by phase. See [CLAUDE.md](./CLAUDE.md) for the
-full project plan, current phase, and the rules for how we build here — read
-it before touching anything.
+A code editor that runs in your browser. You write Python, press Run, and it
+executes safely inside a sandbox. Open the same project in two tabs and your
+edits appear in both, live.
+
+It's also a learning project with an unusual rule: **every piece gets built
+the obvious way first, broken on purpose, measured, and only then fixed.** The
+record of what broke and why lives in [`docs/`](docs/README.md), and it's the
+most useful part of the repo. The full plan is in [CLAUDE.md](CLAUDE.md).
+
+## What it looks like
+
+Three screens: sign in, your projects, and the editor. The editor is laid out
+like VS Code:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Cloud IDE › my-project › main.py                 Ctrl+Enter [Run] │  title bar
+├────┬──────────────┬──────────────────────────────────────────────┤
+│    │ EXPLORER     │ main.py                                        │  tab
+│ [] │ MY-PROJECT   │  1  name = "world"                             │
+│    │   main.py    │  2  print(f"hello {name}")                     │  editor
+│ ## │              ├──────────────────────────────────────────────┤
+│    │              │ OUTPUT                                         │
+│    │              │ $ python main.py                               │  output
+│    │              │ hello world                                    │
+│    │              │ [Process exited with code 0]                   │
+├────┴──────────────┴──────────────────────────────────────────────┤
+│ * Live   my-project                   Ln 2, Col 7   Python   you@ │  status bar
+└──────────────────────────────────────────────────────────────────┘
+```
+
+The status bar tells the truth about the connection: **Live**,
+**Reconnecting…**, or **Offline** (it turns red). If you go offline you can
+keep typing, and your edits sync when the connection comes back.
 
 ## How it works
 
-Current state of the system. Update this section when a phase changes the
-shape of things — unlike `docs/journal/`, which is a frozen record of what
-broke and when.
-
-Two processes: `web` (React + Vite, port 5173) and `server` (Fastify, port
-3001). Everything runs on localhost.
-
-**Editing.** The document text lives in a [Yjs](https://yjs.dev) CRDT, not in
-React state. `y-codemirror.next` binds that Yjs text to the CodeMirror editor
-in both directions, and `y-websocket` carries updates to the server, which
-holds the room's authoritative copy in memory and rebroadcasts merged updates
-to everyone. Anyone who opens the app joins the same single room. If your
-connection drops you keep typing against your local copy, and on reconnect
-both sides merge with nothing lost. Why a CRDT rather than broadcasting edits:
-`docs/adr/0001`.
-
-**Running.** The Run button reads the current text out of the Yjs document and
-posts it to `POST /run`. The server writes it to a file, starts a locked-down
-Docker container with that file mounted read-only, streams back stdout and
-stderr, then removes the container and deletes the file.
-
 ```mermaid
 flowchart LR
-    subgraph Browsers
-      A[Tab A] & B[Tab B]
-    end
-    A <-->|Yjs updates| S[server :3001]
-    B <-->|Yjs updates| S
-    A -->|POST /run| S
-    S -->|create, run, remove| D[Docker container]
-    D -->|stdout / stderr| S
+    B["Your browser<br/>React + CodeMirror"] -->|"/api requests"| V["Vite dev server<br/>:5173"]
+    B <-->|"/collab WebSocket"| V
+    V -->|"proxies both"| S["Fastify server<br/>:3001"]
+    S --> P[("Postgres<br/>users, projects, sessions")]
+    S -->|"a fresh container per Run"| D["Docker sandbox<br/>Python 3.11"]
+    S --- Y["Live documents<br/>one per project, in memory"]
 ```
 
-Guardrails in place: the WebSocket rejects upgrades from other origins (they
-bypass CORS), the room name is fixed so the server can't be made to allocate
-unlimited documents, socket errors can't crash the process, and the starting
-content is seeded once server-side rather than by whichever client arrives
-first.
+In plain words, four things happen:
 
-Not built yet: no accounts and no separate projects, so **everyone shares one
-document** (Phase 4). **Nothing is stored anywhere** — the document lives only
-in server memory and in whatever tabs are open, so restarting the server with
-a tab open restores it from that tab, and closing every tab loses it for good
-(Phase 8). No authorization on the socket at all, and no terminal.
+1. **Signing in.** Your password is never stored, only a scrambled version
+   of it (a scrypt hash). When you sign in, the server gives your browser a
+   session cookie that JavaScript can't read, which proves who you are on
+   every request after that.
+2. **Projects.** Each project belongs to one account. The server only ever
+   looks up a project together with its owner, so asking for someone else's
+   project gets "not found", even if you guess its id.
+3. **Editing together.** The text isn't sent as "insert this at position 21"
+   (that approach loses edits, see journal 0003). It's stored in a **CRDT**
+   called Yjs, a data structure where edits merge the same way on every copy,
+   in any order. Every tab of the project ends up with identical text.
+4. **Running code.** Pressing Run sends the text to the server, which starts a
+   locked-down Docker container, runs `python main.py` inside it, sends back
+   the output, and throws the container away.
 
-The editor starts empty on a genuinely fresh room. That's deliberate: seeding
-default content server-side turned out to inject it into live documents on
-every restart.
+## Run it on your machine
 
-## Setup
-
-Requires: Node 20+, npm, and Docker Desktop (running). Submitted code executes
-inside a container, so nothing runs without the Docker engine up.
-
-We also use a [conda](https://docs.conda.io/) env as the shell convention for
-this repo. It doesn't run user code (Docker does, since Phase 2), but keep it
-active so everyone's terminal behaves the same:
+You need **Node 20+** and **Docker Desktop** (running).
 
 ```bash
-conda create -n cloud-ide-runner python=3.11   # one-time
-conda activate cloud-ide-runner
-```
+# 1. Settings. The values in the example are fine for local use.
+cp .env.example .env              # PowerShell: copy .env.example .env
 
-Build the sandbox image once, and again whenever `server/runner/Dockerfile`
-changes — the backend can't run anything without it:
+# 2. Start the database
+docker compose up -d
 
-```bash
+# 3. Install the server and create the database tables
+cd server
+npm install
+npx drizzle-kit migrate
+cd ..
+
+# 4. Build the sandbox image the server runs code in
 docker build -t cloud-ide-runner-python:latest server/runner
 ```
 
-Then, in two terminals:
+Then start both halves, each in its own terminal:
 
 ```bash
-# terminal 1 — backend, http://127.0.0.1:3001
+# terminal 1: the server, on http://127.0.0.1:3001
 cd server
-npm install
 npm run dev
 
-# terminal 2 — frontend, http://localhost:5173
+# terminal 2: the website, on http://localhost:5173
 cd web
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`, write some Python, hit Run.
+Open **http://localhost:5173** and create an account. Use a throwaway
+password: this is a learning build that has never been security reviewed.
 
-## Collaborating
+> We also keep a conda env (`conda activate cloud-ide-runner`) active in every
+> terminal as a shared habit. Nothing depends on it; Docker runs the code.
 
-Every browser that opens the app joins the same shared document, live. To try
-it, open the app in **two different browser profiles** (not two windows of the
-same profile — they share too much state to be a useful test). Type in one and
-it appears in the other.
+## Using it
 
-There are no accounts and no separate projects yet, so everyone shares one
-room. Users and per-user projects are Phase 4.
+- Create a project, open it, write some Python, and press **Run** or
+  **Ctrl+Enter**.
+- Open the same project in a second tab to see edits sync live.
+- Only you can open your projects. Sharing with another person isn't built
+  yet.
 
-## Execution limits
+If your program stops unexpectedly, it probably hit one of these limits:
 
-If your code dies unexpectedly, it probably hit one of these: 5s wall clock,
-128MB memory, 0.5 CPU, 64 processes, 1MB of output per stream, no network
-access, read-only filesystem except `/tmp`.
+| Limit | Value | What you'll see |
+|---|---|---|
+| Time | 5 seconds | `Killed: exceeded the 5s time limit` |
+| Memory | 128 MB | `Killed: exit 137, likely exceeded the 128MB memory limit` |
+| CPU | half a core | Code just runs slower |
+| Processes | 64 | Starting more fails with `BlockingIOError` |
+| Output | 1 MB per stream | `[output truncated at 1048576 bytes]` |
+| Network | none | Any network call fails |
+| Disk | read-only, except `/tmp` | Writing files fails |
 
-A script killed for exceeding memory exits with code 137 and prints nothing,
-so the UI labels that case explicitly.
+## Where things live
 
-## Branching
+```
+server/                  The backend (Node + Fastify)
+  src/index.ts           Starts the server; the Run endpoint
+  src/auth/              Accounts, password hashing, sessions
+  src/projects/          Project endpoints, always scoped to the owner
+  src/collab.ts          Live editing over WebSocket, checks you own the project
+  src/runner.ts          Runs code in a locked-down Docker container
+  src/db/                Database tables (Drizzle)
+  runner/Dockerfile      The sandbox image
+  drizzle/               Database migrations, as plain SQL
+web/                     The frontend (React + Vite)
+  src/App.tsx            Picks which screen to show
+  src/AuthForm.tsx       Sign in / create account
+  src/ProjectsPage.tsx   Your projects
+  src/Editor.tsx         The IDE workspace
+  src/api.ts             Every call to the server goes through here
+docs/journal/            What broke in each phase, with numbers
+docs/adr/                Big decisions and why they were made
+docker-compose.yml       Postgres, for local development only
+```
 
-- `main` stays deployable at the current phase.
-- Build features on a branch (`git checkout -b your-name/feature`), open a PR,
-  merge one at a time.
-- Don't build ahead of the phase marked current in `CLAUDE.md`.
+## The journey so far
 
-## Known limitation (by design, for now)
+Each phase built the obvious thing, broke it, and fixed what broke:
 
-Code runs in a container with resource limits, no network, and a non-root
-user, but a stock container still shares the host kernel — one kernel CVE and
-user code is out. Real hardening (gVisor, seccomp, NetworkPolicy) is Phase 9,
-and nothing gets a public URL before then. **Localhost only.**
+| Phase | Built | What broke | The lesson |
+|---|---|---|---|
+| 1 | Editor and a server that runs code | Code typed in the browser read a file outside the project | Code has to run in isolation ([0001](docs/journal/0001-unsandboxed-execution.md)) |
+| 2 | Running code in Docker | An infinite loop left its container running forever | Every run needs a deadline and a kill you verify ([0002](docs/journal/0002-container-leak-and-timeout.md)) |
+| 3 | Live editing between tabs | 3 of 6 keystrokes vanished, and the copies never matched again | Merge edits with a CRDT, don't broadcast positions ([0003](docs/journal/0003-broadcast-cannot-converge.md)) |
+| 4 | Accounts and projects | Any signed-in user could open anyone's project | Being signed in is not the same as being allowed ([0004](docs/journal/0004-authn-is-not-authz.md)) |
 
-The walls hit so far, and what they taught, are in `docs/journal/`.
+**Current phase: 4.** Next up is Phase 5, running things on Kubernetes locally.
+
+## Working on this repo
+
+- `main` always works at the current phase.
+- Build on a branch (`git checkout -b your-name/feature`), open a pull
+  request, and merge one at a time.
+- Commit messages start with a type: `feat:`, `fix:`, `docs:`, `chore:`.
+- Don't build ahead of the current phase. Arriving at each fix by watching
+  the naive version fail is the whole point.
+
+## Known limitations
+
+These are deliberate for now, not oversights:
+
+- **Localhost only.** Containers share the host's kernel, so one kernel bug
+  would let code escape. Proper hardening is Phase 9, and nothing gets a
+  public URL before then.
+- **Code isn't saved to disk.** The text lives in server memory and in any
+  open tabs. Restarting the server with a tab open restores it from that tab;
+  restarting with every tab closed loses it. Saving is Phase 8.
+- **One file per project**, and **no sharing** between accounts yet.
+- **No rate limiting** on sign in or Run.

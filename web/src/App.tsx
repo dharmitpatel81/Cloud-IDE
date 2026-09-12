@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type Project, type User } from "./api";
 import { AuthForm } from "./AuthForm";
 import { ProjectsPage } from "./ProjectsPage";
 import { Editor } from "./Editor";
+import { LogoIcon } from "./icons";
 
 function App() {
   // undefined = still checking the session, null = signed out.
@@ -13,37 +14,40 @@ function App() {
     api.me().then(setUser, () => setUser(null));
   }, []);
 
+  // Stable identity on purpose: Editor's connection effect depends on it, and
+  // a new function every render would reconnect the socket every render.
+  const endSession = useCallback(() => {
+    setUser(null);
+    setOpenProject(null);
+  }, []);
+
   if (user === undefined) {
     return (
-      <div className="app">
-        <p className="hint">Loading…</p>
+      <div className="splash">
+        <LogoIcon size={22} /> Loading…
       </div>
     );
   }
 
   if (user === null) {
-    return (
-      <div className="app">
-        <h2>Cloud IDE</h2>
-        <AuthForm onSignedIn={setUser} />
-      </div>
-    );
+    return <AuthForm onSignedIn={setUser} />;
   }
 
   if (openProject) {
-    return <Editor project={openProject} onClose={() => setOpenProject(null)} />;
+    // Keyed by project id: switching projects remounts the editor, so each
+    // project gets its own Y.Doc and provider instead of reusing the last one.
+    return (
+      <Editor
+        key={openProject.id}
+        project={openProject}
+        user={user}
+        onClose={() => setOpenProject(null)}
+        onSessionEnded={endSession}
+      />
+    );
   }
 
-  return (
-    <ProjectsPage
-      user={user}
-      onOpen={setOpenProject}
-      onSignedOut={() => {
-        setUser(null);
-        setOpenProject(null);
-      }}
-    />
-  );
+  return <ProjectsPage user={user} onOpen={setOpenProject} onSignedOut={endSession} />;
 }
 
 export default App;

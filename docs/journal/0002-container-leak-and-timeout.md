@@ -49,7 +49,7 @@ it's staying out for now instead of getting built early.
 The five paragraphs above are the journal entry proper. Everything here is
 detail I'd want if I came back to this cold.
 
-### How a run works now
+### How a run worked (Phase 2 snapshot)
 
 ```mermaid
 sequenceDiagram
