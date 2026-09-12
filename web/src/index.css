@@ -75,3 +75,110 @@ body {
   color: #ffcc80;
   font-size: 0.9rem;
 }
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.topbar h2 {
+  margin: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hint {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #6cb6ff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+.card {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.25rem;
+  max-width: 360px;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+
+.auth-form input,
+.new-project-form input {
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #e4e4e4;
+  padding: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.new-project-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.new-project-form input {
+  flex: 1;
+}
+
+.project-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.project-item {
+  width: 100%;
+  text-align: left;
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e4e4e4;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.project-item:hover {
+  border-color: #555;
+}
