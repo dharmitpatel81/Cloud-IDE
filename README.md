@@ -4,6 +4,52 @@ Browser-based IDE, built phase by phase. See [CLAUDE.md](./CLAUDE.md) for the
 full project plan, current phase, and the rules for how we build here — read
 it before touching anything.
 
+## How it works
+
+Current state of the system. Update this section when a phase changes the
+shape of things — unlike `docs/journal/`, which is a frozen record of what
+broke and when.
+
+Two processes: `web` (React + Vite, port 5173) and `server` (Fastify, port
+3001). Everything runs on localhost.
+
+**Editing.** The document text lives in a [Yjs](https://yjs.dev) CRDT, not in
+React state. `y-codemirror.next` binds that Yjs text to the CodeMirror editor
+in both directions, and `y-websocket` carries updates to the server, which
+holds the room's authoritative copy in memory and rebroadcasts merged updates
+to everyone. Anyone who opens the app joins the same single room. If your
+connection drops you keep typing against your local copy, and on reconnect
+both sides merge with nothing lost. Why a CRDT rather than broadcasting edits:
+`docs/adr/0001`.
+
+**Running.** The Run button reads the current text out of the Yjs document and
+posts it to `POST /run`. The server writes it to a file, starts a locked-down
+Docker container with that file mounted read-only, streams back stdout and
+stderr, then removes the container and deletes the file.
+
+```mermaid
+flowchart LR
+    subgraph Browsers
+      A[Tab A] & B[Tab B]
+    end
+    A <-->|Yjs updates| S[server :3001]
+    B <-->|Yjs updates| S
+    A -->|POST /run| S
+    S -->|create, run, remove| D[Docker container]
+    D -->|stdout / stderr| S
+```
+
+Guardrails in place: the WebSocket rejects upgrades from other origins (they
+bypass CORS), the room name is fixed so the server can't be made to allocate
+unlimited documents, socket errors can't crash the process, and the starting
+content is seeded once server-side rather than by whichever client arrives
+first.
+
+Not built yet: no accounts and no separate projects, so **everyone shares one
+document** (Phase 4). **Nothing persists** — restart the server and the
+document is gone (Phase 8). No authorization on the socket at all, and no
+terminal.
+
 ## Setup
 
 Requires: Node 20+, npm, and Docker Desktop (running). Submitted code executes

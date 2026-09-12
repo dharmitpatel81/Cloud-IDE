@@ -129,7 +129,10 @@ adding it.
 ### The same experiment, after the swap
 
 Ran the identical test against the Yjs version. Both tabs ended up with
-`BBBAAA` on line 2.
+`AAABBB` on line 2. (First attempt at this one was botched too, typed into
+the wrong tab. That's four experiments in this phase and three bad runs
+before a good one, which is roughly the real ratio and worth expecting rather
+than being surprised by.)
 
 | | naive broadcast | Yjs |
 |---|---|---|
@@ -141,7 +144,7 @@ Ran the identical test against the Yjs version. Both tabs ended up with
 Two details worth noticing. The status indicator became honest for free,
 because y-websocket runs its own ping/pong rather than trusting
 `readyState`. And neither tab asked the server who won: both independently
-computed `BBBAAA` because a CRDT merge is deterministic and commutative, so
+computed `AAABBB` because a CRDT merge is deterministic and commutative, so
 every replica lands on the same result regardless of what order things
 arrived in. The interleaving isn't necessarily what either person expected,
 but each person's characters stayed contiguous and nothing was dropped.

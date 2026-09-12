@@ -5,7 +5,6 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { yCollab } from "y-codemirror.next";
 
-const DEFAULT_CODE = `print("hello world")\n`;
 const WS_URL = "ws://127.0.0.1:3001";
 const ROOM = "cloud-ide";
 
@@ -15,7 +14,6 @@ function App() {
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
   const [connection, setConnection] = useState("connecting");
-  const [ready, setReady] = useState(false);
 
   // The Y.Doc is the source of truth for the text. There is deliberately no
   // React state mirroring it — that second copy is what drifts.
@@ -24,30 +22,27 @@ function App() {
   const ydoc = ydocRef.current;
   const ytext = useMemo(() => ydoc.getText("code"), [ydoc]);
 
-  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
-  const initialText = useRef("");
+  // Built once and never replaced, so the editor's extensions stay stable and
+  // yCollab doesn't mint a second undo manager. Connecting is the effect's job.
+  const providerRef = useRef<WebsocketProvider | null>(null);
+  if (!providerRef.current) {
+    providerRef.current = new WebsocketProvider(WS_URL, ROOM, ydoc, { connect: false });
+  }
+  const provider = providerRef.current;
 
   useEffect(() => {
-    const p = new WebsocketProvider(WS_URL, ROOM, ydoc);
-
-    p.on("status", (event: { status: string }) => setConnection(event.status));
-    p.on("sync", (isSynced: boolean) => {
-      if (!isSynced) return;
-      // Seed only if the room is genuinely empty, otherwise every client that
-      // joins would append another copy of the default.
-      if (ytext.length === 0) ytext.insert(0, DEFAULT_CODE);
-      // The binding assumes editor doc === ytext at attach time.
-      initialText.current = ytext.toString();
-      setReady(true);
-    });
-
-    setProvider(p);
-    return () => p.destroy();
-  }, [ydoc, ytext]);
+    const onStatus = (event: { status: string }) => setConnection(event.status);
+    provider.on("status", onStatus);
+    provider.connect();
+    return () => {
+      provider.off("status", onStatus);
+      provider.disconnect();
+    };
+  }, [provider]);
 
   const extensions = useMemo(
-    () => (provider ? [python(), yCollab(ytext, provider.awareness)] : [python()]),
-    [provider, ytext],
+    () => [python(), yCollab(ytext, provider.awareness)],
+    [ytext, provider],
   );
 
   async function runCode() {
@@ -87,20 +82,15 @@ function App() {
     <div className="app">
       <h2>Cloud IDE — Phase 3</h2>
       <div className="output-label">socket: {connection}</div>
-      <button className="run-btn" onClick={runCode} disabled={running || !ready}>
+      <button className="run-btn" onClick={runCode} disabled={running}>
         {running ? "Running..." : "Run"}
       </button>
       <div className="editor-wrap">
-        {ready ? (
-          <CodeMirror
-            value={initialText.current}
-            height="300px"
-            theme="dark"
-            extensions={extensions}
-          />
-        ) : (
-          <div className="editor-placeholder">connecting to the room…</div>
-        )}
+        {/* No `value` prop on purpose: passing one makes the wrapper replace
+            the whole document whenever it changes, which would clobber the
+            CRDT. The editor starts empty, matching the empty Y.Text, and the
+            binding delivers the initial sync as a delta. */}
+        <CodeMirror height="300px" theme="dark" extensions={extensions} />
       </div>
       {error && <div className="error-banner">{error}</div>}
       <div className="output-label">stdout</div>
