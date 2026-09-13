@@ -12,5 +12,11 @@ declare module "y-websocket/bin/utils" {
     opts?: { docName?: string; gc?: boolean },
   ): void;
 
-  export function setContentInitializor(f: (ydoc: Y.Doc) => Promise<void>): void;
+  /** The room's shared document, created (empty) if it doesn't exist yet.
+   *  It's an instance of y-websocket's own copy of Yjs, the CommonJS one. */
+  export function getYDoc(docName: string, gc?: boolean): Y.Doc;
+
+  /** Every open room by name. With no persistence configured, a room stays
+   *  here after its last client leaves. */
+  export const docs: Map<string, Y.Doc & { conns: Map<WebSocket, Set<number>> }>;
 }

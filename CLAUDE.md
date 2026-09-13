@@ -130,7 +130,7 @@ Add a row when a phase needs it. An unused dependency is homework with no payoff
 | 1 | Frontend / editor | React + Vite + TypeScript, CodeMirror 6 |
 | 1 | Backend | Node 20 + Fastify + TypeScript |
 | 2 | Sandbox | Docker via `dockerode` |
-| 3 | Collab / terminal | `ws` → Yjs + `y-codemirror.next`; `node-pty` + xterm.js |
+| 3 | Collab / terminal | `ws` → Yjs + `y-codemirror.next`; xterm.js + `docker exec` TTY (not `node-pty`: the pty must live inside the sandbox — ADR 0003) |
 | 4 | Database | Postgres + Drizzle (Compose) |
 | 6 | Orchestration | Kubernetes (kind) + `@kubernetes/client-node` |
 | 7 | Routing state | Redis |

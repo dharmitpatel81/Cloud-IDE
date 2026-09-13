@@ -44,6 +44,9 @@ part of the record too.
 | [0002](journal/0002-container-leak-and-timeout.md) | A hung script leaks a container | An infinite loop kept its container alive forever, until every run got a deadline and a kill that's checked. |
 | [0003](journal/0003-broadcast-cannot-converge.md) | Broadcasting edits can't converge | Sending edits as "insert at position N" lost half the keystrokes; a CRDT (Yjs) fixed it for good. |
 | [0004](journal/0004-authn-is-not-authz.md) | Signed in isn't the same as allowed | Any signed-in user could open anyone's project; now every entry point checks who owns what. |
+| [0005](journal/0005-session-container-outlives-its-server.md) | A session container outlives its server | Server restarts orphaned 12 of 16 terminal containers; the fix is a reconciliation loop, not better cleanup-on-exit. |
+| [0006](journal/0006-terminal-passed-every-test-but-the-browser.md) | Passed every test but the browser | Six bugs hid behind a scripted test that wasn't the browser; the test has to take the user's path. |
+| [0007](journal/0007-trusted-server-followed-links-the-sandbox-made.md) | The server followed the sandbox's links | The trusted server was writing into a folder the sandbox could plant symlinks in — a trust boundary crossed by accident. |
 
 ## Decisions (ADRs)
 
@@ -51,13 +54,17 @@ part of the record too.
 |---|---|---|
 | [0001](adr/0001-crdt-for-collaborative-editing.md) | Yjs CRDT for live editing | Why edits merge through a CRDT instead of being broadcast as positions. |
 | [0002](adr/0002-postgres-and-drizzle-for-users-and-projects.md) | Postgres + Drizzle | Why accounts, projects, and sessions live in Postgres, with migrations as plain SQL. |
+| [0003](adr/0003-terminal-container-per-project-with-mirrored-workspace.md) | The terminal's sandbox | One container per project, its folder mirrored into the live document, with internet access — and what that costs. |
 
 ## Words you'll run into
 
 | Word | What it means here |
 |---|---|
 | **Sandbox** | A walled-off place to run code so it can't touch anything else. |
-| **Container** | The sandbox we use: a Docker box with its own files, no network, and strict limits. |
+| **Container** | The sandbox we use: a Docker box with its own files and strict limits. Run's containers have no network; the terminal's can reach the internet. |
+| **Egress** | Network traffic going *out* of a container. The terminal needs it for `npm install`. |
+| **Reconciliation** | A loop that compares what *should* exist with what *does*, and fixes the difference. It survives crashes; cleanup-on-exit doesn't. |
+| **Symlink** | A file that points at another path. Harmless inside a sandbox, dangerous if a trusted process follows it. |
 | **CRDT** | A data structure where edits merge the same way on every copy, no matter what order they arrive in. |
 | **Yjs** | The CRDT library this project uses for the editor text. |
 | **WebSocket** | A connection that stays open, so the server can push edits to you instantly. |
