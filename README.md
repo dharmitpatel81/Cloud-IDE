@@ -188,7 +188,12 @@ Each phase built the obvious thing, broke it, and fixed what broke:
 | 4 | The terminal, in a browser | Six bugs a scripted test couldn't see | A test proves only what it exercises ([0006](docs/journal/0006-terminal-passed-every-test-but-the-browser.md)) |
 | 4 | Syncing the terminal's folder | The trusted server followed paths the sandbox could plant links in | Keep the trusted side out of what the untrusted side writes ([0007](docs/journal/0007-trusted-server-followed-links-the-sandbox-made.md)) |
 
-**Current phase: 4.** Next up is Phase 5, running things on Kubernetes locally.
+**Current phase: 5.** Kubernetes locally, by hand: pods, Deployments, and
+watching a reconciliation loop bring back what you delete.
+
+Phase 4 kept sign-in inside `server/` instead of splitting it into its own
+service. Nothing needs it separately yet; the Phase 7 gateway will, when it
+has to check sessions before forwarding a socket to a workspace.
 
 ## Working on this repo
 

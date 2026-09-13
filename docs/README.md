@@ -56,6 +56,12 @@ part of the record too.
 | [0002](adr/0002-postgres-and-drizzle-for-users-and-projects.md) | Postgres + Drizzle | Why accounts, projects, and sessions live in Postgres, with migrations as plain SQL. |
 | [0003](adr/0003-terminal-container-per-project-with-mirrored-workspace.md) | The terminal's sandbox | One container per project, its folder mirrored into the live document, with internet access — and what that costs. |
 
+## Left for later, on purpose
+
+| What | Why not now | When |
+|---|---|---|
+| Sign-in as its own service | Only one server checks sessions today, so a split would be a guess about where the boundary is. | Phase 7, when the gateway has to check sessions itself. |
+
 ## Words you'll run into
 
 | Word | What it means here |
