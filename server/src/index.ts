@@ -1,13 +1,11 @@
 import Fastify from "fastify";
-import { writeFile, mkdir, unlink } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import path from "node:path";
-import { z } from "zod";
-import { runInContainer } from "./runner.js";
 import { attachCollabServer } from "./collab.js";
+import { attachTerminalServer } from "./terminal.js";
+import { attachUpgradeRouter } from "./ws-router.js";
 import cookie from "@fastify/cookie";
-import { authRoutes, currentUser, cleanupExpiredSessions } from "./auth/routes.js";
+import { authRoutes, cleanupExpiredSessions } from "./auth/routes.js";
 import { projectRoutes } from "./projects/routes.js";
+import { runRoutes } from "./run/routes.js";
 import { ALLOWED_HOSTS } from "./allowlist.js";
 
 // Without an explicit logger, app.log is a no-op and every error we "log" is discarded.
@@ -56,35 +54,11 @@ app.addHook("onSend", async (_request, reply) => {
 await app.register(cookie);
 await app.register(authRoutes);
 await app.register(projectRoutes);
+await app.register(runRoutes);
 
-const runBody = z.object({ code: z.string().max(1024 * 1024) });
-
-const WORKSPACE_DIR = path.join(process.cwd(), "workspace");
-await mkdir(WORKSPACE_DIR, { recursive: true });
-
-app.post("/run", async (request, reply) => {
-  // Unauthenticated since Phase 1, because it never looked like an auth
-  // problem — it looked like a code runner.
-  const user = await currentUser(request);
-  if (!user) return reply.status(401).send({ error: "Not signed in." });
-
-  const parsed = runBody.safeParse(request.body);
-  if (!parsed.success) return reply.status(400).send({ error: "Expected a code string." });
-  const { code } = parsed.data;
-
-  const filename = `${randomUUID()}.py`;
-  const filepath = path.join(WORKSPACE_DIR, filename);
-  await writeFile(filepath, code);
-
-  try {
-    const result = await runInContainer(filepath);
-    return result;
-  } finally {
-    await unlink(filepath).catch(() => { });
-  }
-});
-
-attachCollabServer(app.server);
+attachUpgradeRouter(app.server);
+attachCollabServer();
+attachTerminalServer();
 
 // A session's row can outlive its cookie's expiry with nobody ever deleting
 // it. Sweep hourly rather than relying solely on "deleted on next use."

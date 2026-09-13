@@ -48,10 +48,16 @@ export const api = {
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
 
   listProjects: () => request<Project[]>("/projects"),
-  createProject: (name: string) =>
-    request<Project>("/projects", { method: "POST", body: JSON.stringify({ name }) }),
+  // The server always seeds an empty project — with a real terminal in the
+  // sandbox (Terminal.tsx), scaffolding whatever's needed is on you, not a
+  // template picker.
+  createProject: (name: string) => request<Project>("/projects", { method: "POST", body: JSON.stringify({ name }) }),
   getProject: (id: string) => request<Project>(`/projects/${id}`),
+  renameProject: (id: string, name: string) =>
+    request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteProject: (id: string) => request<{ ok: true }>(`/projects/${id}`, { method: "DELETE" }),
 
-  run: (code: string) =>
-    request<RunResult>("/run", { method: "POST", body: JSON.stringify({ code }) }),
+  /** Runs `entry` with every project file alongside it, so imports resolve. */
+  run: (entry: string, files: { path: string; content: string }[]) =>
+    request<RunResult>("/run", { method: "POST", body: JSON.stringify({ entry, files }) }),
 };

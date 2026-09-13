@@ -89,3 +89,13 @@ What this makes harder:
 - **The editor can no longer be driven by a React `value` prop.** Anything
   that replaces the document wholesale fights the CRDT and gets broadcast to
   everyone as a real edit. Text changes have to go through the Y.Text.
+
+## Update — 2026-09-13
+
+Not a reversal: Yjs stands. Two details above are out of date. Rooms are no
+longer seeded through `setContentInitializor`; seeding moved to project
+creation, templates were later removed, and rooms now start empty. And the
+prediction that "any external process that writes to a project has to go
+through Yjs too" came true with the terminal: `server/src/workspaceSync.ts`
+turns file changes into minimal Y.Text edits instead of replacing text
+wholesale. See ADR 0003.

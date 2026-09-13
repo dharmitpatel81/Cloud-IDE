@@ -1,8 +1,9 @@
 # Cloud IDE
 
-A code editor that runs in your browser. You write Python, press Run, and it
-executes safely inside a sandbox. Open the same project in two tabs and your
-edits appear in both, live.
+A code editor that runs in your browser. Write Python or JavaScript and press
+Run to execute it in a sandbox, or open the terminal and work in the project
+the way you would on your own machine — `npm install`, `node`, `python3`. Open
+the same project in two tabs and your edits appear in both, live.
 
 It's also a learning project with an unusual rule: **every piece gets built
 the obvious way first, broken on purpose, measured, and only then fixed.** The
@@ -11,24 +12,22 @@ most useful part of the repo. The full plan is in [CLAUDE.md](CLAUDE.md).
 
 ## What it looks like
 
-Three screens: sign in, your projects, and the editor. The editor is laid out
-like VS Code:
+Three screens: sign in, your projects, and the editor:
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ Cloud IDE › my-project › main.py                 Ctrl+Enter [Run] │  title bar
-├────┬──────────────┬──────────────────────────────────────────────┤
-│    │ EXPLORER     │ main.py                                        │  tab
-│ [] │ MY-PROJECT   │  1  name = "world"                             │
-│    │   main.py    │  2  print(f"hello {name}")                     │  editor
-│ ## │              ├──────────────────────────────────────────────┤
-│    │              │ OUTPUT                                         │
-│    │              │ $ python main.py                               │  output
-│    │              │ hello world                                    │
-│    │              │ [Process exited with code 0]                   │
-├────┴──────────────┴──────────────────────────────────────────────┤
-│ * Live   my-project                   Ln 2, Col 7   Python   you@ │  status bar
-└──────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│ ⌂  my-project                                          you@mail.com  Y │  title bar
+├──────────────┬───────────────────────────────────┬────────────────────┤
+│ EXPLORER     │ main.py   app.js                  │ [Run ▶] Ctrl+Enter │
+│ MY-PROJECT   │ src › app.js                      │ ┌────────────────┐ │
+│ ▾ src        │  1  console.log("hi")             │ │ $ node app.js  │ │  output
+│     app.js   │                                   │ │ hi             │ │
+│   main.py    │                                   │ └────────────────┘ │
+├──────────────┴───────────────────────────────────┴────────────────────┤
+│ node@3ff6:/workspace$ npm install react                                │  terminal
+├───────────────────────────────────────────────────────────────────────┤
+│ ● Live                                           Ln 1, Col 18   JS     │  status bar
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 The status bar tells the truth about the connection: **Live**,
@@ -39,30 +38,35 @@ keep typing, and your edits sync when the connection comes back.
 
 ```mermaid
 flowchart LR
-    B["Your browser<br/>React + CodeMirror"] -->|"/api requests"| V["Vite dev server<br/>:5173"]
-    B <-->|"/collab WebSocket"| V
-    V -->|"proxies both"| S["Fastify server<br/>:3001"]
+    B["Your browser<br/>React + CodeMirror + xterm.js"] -->|"/api"| V["Vite dev server<br/>:5173"]
+    B <-->|"/collab and /terminal<br/>WebSockets"| V
+    V -->|"proxies all three"| S["Fastify server<br/>:3001"]
     S --> P[("Postgres<br/>users, projects, sessions")]
-    S -->|"a fresh container per Run"| D["Docker sandbox<br/>Python 3.11"]
     S --- Y["Live documents<br/>one per project, in memory"]
+    S -->|"a fresh container per Run<br/>no network, 5 s limit"| R["Run sandbox<br/>Python or Node"]
+    S -->|"one container per project<br/>internet access"| T["Terminal<br/>bash, node, npm, python3"]
+    Y <-->|"mirrored every second"| T
 ```
 
-In plain words, four things happen:
+In plain words, five things happen:
 
-1. **Signing in.** Your password is never stored, only a scrambled version
-   of it (a scrypt hash). When you sign in, the server gives your browser a
-   session cookie that JavaScript can't read, which proves who you are on
-   every request after that.
+1. **Signing in.** Your password is never stored, only a scrambled version of
+   it (a scrypt hash). The server gives your browser a session cookie that
+   JavaScript can't read, which proves who you are on every request.
 2. **Projects.** Each project belongs to one account. The server only ever
-   looks up a project together with its owner, so asking for someone else's
-   project gets "not found", even if you guess its id.
-3. **Editing together.** The text isn't sent as "insert this at position 21"
-   (that approach loses edits, see journal 0003). It's stored in a **CRDT**
-   called Yjs, a data structure where edits merge the same way on every copy,
-   in any order. Every tab of the project ends up with identical text.
-4. **Running code.** Pressing Run sends the text to the server, which starts a
-   locked-down Docker container, runs `python main.py` inside it, sends back
-   the output, and throws the container away.
+   looks a project up together with its owner, so someone else's project is
+   "not found" even if you guess its id. You can create, rename and delete
+   yours.
+3. **Editing together.** Text isn't sent as "insert this at position 21" (that
+   loses edits, see journal 0003). It lives in a **CRDT** called Yjs, where
+   edits merge the same way on every copy, in any order.
+4. **Running code.** Run sends the whole project to the server, which starts a
+   locked-down container, runs the open `.py` or `.js` file, returns the
+   output, and throws the container away.
+5. **The terminal.** Each project gets one long-lived container with a real
+   shell, shared by every tab that opens it. Its `/workspace` folder *is* the
+   project: files you create in the shell appear in the explorer, and edits in
+   the editor are on disk for the next command.
 
 ## Run it on your machine
 
@@ -81,8 +85,10 @@ npm install
 npx drizzle-kit migrate
 cd ..
 
-# 4. Build the sandbox image the server runs code in
-docker build -t cloud-ide-runner-python:latest server/runner
+# 4. Build the three sandbox images
+docker build -t cloud-ide-runner-python:latest server/runner/python
+docker build -t cloud-ide-runner-node:latest   server/runner/node
+docker build -t cloud-ide-workspace:latest     server/runner/workspace
 ```
 
 Then start both halves, each in its own terminal:
@@ -106,45 +112,66 @@ password: this is a learning build that has never been security reviewed.
 
 ## Using it
 
-- Create a project, open it, write some Python, and press **Run** or
-  **Ctrl+Enter**.
-- Open the same project in a second tab to see edits sync live.
-- Only you can open your projects. Sharing with another person isn't built
-  yet.
+- Create a project, open it, and either write a file and press **Run**
+  (**Ctrl+Enter**), or use the terminal at the bottom.
+- Hover a project card to **rename** (pencil) or **delete** (trash) it.
+- Open the same project in a second tab: the editor and the terminal are
+  shared.
+- `npm create vite@latest` asks questions even when you pass `--template`.
+  If it looks stuck, it's waiting for you — press Enter.
+- `npm run dev` starts inside the container, but your browser can't reach it
+  yet. Routing to one specific container is Phase 7.
 
-If your program stops unexpectedly, it probably hit one of these limits:
+The two sandboxes have different limits:
 
-| Limit | Value | What you'll see |
+| Limit | Run | Terminal |
 |---|---|---|
-| Time | 5 seconds | `Killed: exceeded the 5s time limit` |
-| Memory | 128 MB | `Killed: exit 137, likely exceeded the 128MB memory limit` |
-| CPU | half a core | Code just runs slower |
-| Processes | 64 | Starting more fails with `BlockingIOError` |
-| Output | 1 MB per stream | `[output truncated at 1048576 bytes]` |
-| Network | none | Any network call fails |
-| Disk | read-only, except `/tmp` | Writing files fails |
+| Time | 5 seconds, then killed | none |
+| Memory | 128 MB (exit 137 if exceeded) | 512 MB |
+| CPU | half a core | one core |
+| Processes | 64 | 256 |
+| Output | 1 MB per stream | last 64 KB replayed when a tab connects |
+| Network | none | internet |
+| Disk | read-only, except `/tmp` | `/workspace` and `$HOME`; the rest read-only |
+| User | non-root | non-root (`node`) |
+
+The terminal's folder is mirrored into the editor except `node_modules`,
+`.git`, `__pycache__`, `.venv`, `.cache`, binary files, files over 1 MB, and
+anything past 200 files.
 
 ## Where things live
 
 ```
-server/                  The backend (Node + Fastify)
-  src/index.ts           Starts the server; the Run endpoint
-  src/auth/              Accounts, password hashing, sessions
-  src/projects/          Project endpoints, always scoped to the owner
-  src/collab.ts          Live editing over WebSocket, checks you own the project
-  src/runner.ts          Runs code in a locked-down Docker container
-  src/db/                Database tables (Drizzle)
-  runner/Dockerfile      The sandbox image
-  drizzle/               Database migrations, as plain SQL
-web/                     The frontend (React + Vite)
-  src/App.tsx            Picks which screen to show
-  src/AuthForm.tsx       Sign in / create account
-  src/ProjectsPage.tsx   Your projects
-  src/Editor.tsx         The IDE workspace
-  src/api.ts             Every call to the server goes through here
-docs/journal/            What broke in each phase, with numbers
-docs/adr/                Big decisions and why they were made
-docker-compose.yml       Postgres, for local development only
+server/                    The backend (Node + Fastify)
+  src/index.ts             Starts the server, registers everything
+  src/auth/                Accounts, password hashing, sessions
+  src/projects/            Project endpoints, always scoped to the owner
+  src/run/routes.ts        The Run endpoint
+  src/runner.ts            The only module that starts containers
+  src/projectFiles.ts      Checks file paths, writes a project to a folder
+  src/collab.ts            Live editing over WebSocket
+  src/terminal.ts          The terminal over WebSocket, one shell per project
+  src/workspaceSync.ts     Mirrors the terminal's folder into the document
+  src/ws-auth.ts           Who may open a socket, and revoking it on logout
+  src/ws-router.ts         Sends each WebSocket upgrade to its endpoint
+  src/db/                  Database tables (Drizzle)
+  runner/python/           Run sandbox image for .py
+  runner/node/             Run sandbox image for .js
+  runner/workspace/        Terminal image: node, npm, python3
+  drizzle/                 Database migrations, as plain SQL
+web/                       The frontend (React + Vite)
+  src/App.tsx              Picks which screen to show
+  src/AuthForm.tsx         Sign in / create account
+  src/ProjectsPage.tsx     Your projects
+  src/Workspace.tsx        The IDE: explorer, editor, output, terminal
+  src/FileExplorer.tsx     The file tree
+  src/CodeEditor.tsx       CodeMirror, bound to the live document
+  src/Terminal.tsx         xterm.js, bound to the project's shell
+  src/files.ts             Files and folders inside the live document
+  src/api.ts               Every HTTP call to the server goes through here
+docs/journal/              What broke, with numbers
+docs/adr/                  Big decisions and why they were made
+docker-compose.yml         Postgres, for local development only
 ```
 
 ## The journey so far
@@ -157,6 +184,9 @@ Each phase built the obvious thing, broke it, and fixed what broke:
 | 2 | Running code in Docker | An infinite loop left its container running forever | Every run needs a deadline and a kill you verify ([0002](docs/journal/0002-container-leak-and-timeout.md)) |
 | 3 | Live editing between tabs | 3 of 6 keystrokes vanished, and the copies never matched again | Merge edits with a CRDT, don't broadcast positions ([0003](docs/journal/0003-broadcast-cannot-converge.md)) |
 | 4 | Accounts and projects | Any signed-in user could open anyone's project | Being signed in is not the same as being allowed ([0004](docs/journal/0004-authn-is-not-authz.md)) |
+| 4 | A real terminal | Server restarts orphaned 12 of 16 terminal containers | What outlives its process needs a reconciler ([0005](docs/journal/0005-session-container-outlives-its-server.md)) |
+| 4 | The terminal, in a browser | Six bugs a scripted test couldn't see | A test proves only what it exercises ([0006](docs/journal/0006-terminal-passed-every-test-but-the-browser.md)) |
+| 4 | Syncing the terminal's folder | The trusted server followed paths the sandbox could plant links in | Keep the trusted side out of what the untrusted side writes ([0007](docs/journal/0007-trusted-server-followed-links-the-sandbox-made.md)) |
 
 **Current phase: 4.** Next up is Phase 5, running things on Kubernetes locally.
 
@@ -173,11 +203,15 @@ Each phase built the obvious thing, broke it, and fixed what broke:
 
 These are deliberate for now, not oversights:
 
-- **Localhost only.** Containers share the host's kernel, so one kernel bug
-  would let code escape. Proper hardening is Phase 9, and nothing gets a
-  public URL before then.
-- **Code isn't saved to disk.** The text lives in server memory and in any
-  open tabs. Restarting the server with a tab open restores it from that tab;
-  restarting with every tab closed loses it. Saving is Phase 8.
-- **One file per project**, and **no sharing** between accounts yet.
-- **No rate limiting** on sign in or Run.
+- **Localhost only.** Containers share the host's kernel, and the terminal can
+  reach your network. Hardening is Phase 9; nothing gets a public URL before
+  then.
+- **Terminal containers leak when the server restarts** (journal 0005). Clean
+  up with `docker ps -aq --filter label=cloud-ide.owner=terminal | xargs docker rm -f`.
+  A reconciliation loop is Phase 6.
+- **Code isn't saved.** Text lives in server memory and in open tabs.
+  Restarting the server with every tab closed loses it. Saving is Phase 8.
+- **The folder mirror is naive**: it polls every second, and if the shell and
+  the editor change the same file within that second, the last one wins.
+- **No sharing** between accounts, and **no rate limiting** on sign-in, Run,
+  or starting a terminal.

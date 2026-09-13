@@ -29,6 +29,11 @@ export default defineConfig({
         // check expects. It doesn't touch Origin, which is checked separately.
         changeOrigin: true,
       },
+      "/terminal": {
+        target: "ws://127.0.0.1:3001",
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });
