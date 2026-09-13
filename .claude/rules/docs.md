@@ -25,7 +25,9 @@ Date: YYYY-MM-DD · Phase: N
   was 34s" is. No number means the wall wasn't measured and the fix is a guess.
 - Write it when the wall is hit, not batched at the end of a phase. The specifics — the exact
   error, the wrong guess you made first — are gone in a week, and they're the valuable part.
-- Five paragraphs max. A lab notebook, not a blog post.
+- Five paragraphs max for the entry itself — a lab notebook, not a blog post. Longer notes
+  (diagrams, reproduction steps, review findings) may follow in an optional `## Deep dive`
+  appendix below a `---` divider, so the entry stays short and the detail stays findable.
 - **Record the wrong turn.** Anyone can read the fix in the final code; only this file says why
   the obvious approach failed.
 - Name the general concept (reconciliation, CRDT convergence, trust boundary) so it transfers
