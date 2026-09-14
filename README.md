@@ -169,6 +169,10 @@ web/                       The frontend (React + Vite)
   src/Terminal.tsx         xterm.js, bound to the project's shell
   src/files.ts             Files and folders inside the live document
   src/api.ts               Every HTTP call to the server goes through here
+infra/k8s/                 Kubernetes manifests, written by hand (Phase 5)
+  pod.yaml                 A bare pod: delete it and nothing brings it back
+  deployment.yaml          The same pod in a Deployment: it comes back
+  web-demo.yaml            Two pods behind a Service: one address, any pod
 docs/journal/              What broke, with numbers
 docs/adr/                  Big decisions and why they were made
 docker-compose.yml         Postgres, for local development only
@@ -188,9 +192,10 @@ Each phase built the obvious thing, broke it, and fixed what broke:
 | 4 | The terminal, in a browser | Six bugs a scripted test couldn't see | A test proves only what it exercises ([0006](docs/journal/0006-terminal-passed-every-test-but-the-browser.md)) |
 | 4 | Syncing the terminal's folder | The trusted server followed paths the sandbox could plant links in | Keep the trusted side out of what the untrusted side writes ([0007](docs/journal/0007-trusted-server-followed-links-the-sandbox-made.md)) |
 | 5 | Pods and Deployments by hand, on kind | A deleted pod came back in 1.1 s, but its files didn't; an idle pod took 31.4 s to stop | Kubernetes restores the template, not the state; PID 1 must handle SIGTERM ([0008](docs/journal/0008-reconciliation-restores-pods-not-their-state.md)) |
+| 5 | A Service in front of two pods | It sent 29 of 60 connections to one pod and 31 to the other, at random | Balancing is for identical copies; workspaces need routing ([0009](docs/journal/0009-a-service-sends-you-to-any-pod.md)) |
 
-**Current phase: 5.** Kubernetes locally, by hand: pods, Deployments, and
-watching a reconciliation loop bring back what you delete.
+**Current phase: 5.** Kubernetes locally, by hand: pods, Deployments,
+Services, and watching a reconciliation loop bring back what you delete.
 
 Phase 4 kept sign-in inside `server/` instead of splitting it into its own
 service. Nothing needs it separately yet; the Phase 7 gateway will, when it

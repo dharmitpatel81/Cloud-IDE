@@ -48,6 +48,7 @@ part of the record too.
 | [0006](journal/0006-terminal-passed-every-test-but-the-browser.md) | Passed every test but the browser | Six bugs hid behind a scripted test that wasn't the browser; the test has to take the user's path. |
 | [0007](journal/0007-trusted-server-followed-links-the-sandbox-made.md) | The server followed the sandbox's links | The trusted server was writing into a folder the sandbox could plant symlinks in — a trust boundary crossed by accident. |
 | [0008](journal/0008-reconciliation-restores-pods-not-their-state.md) | A pod comes back, its files don't | Kubernetes replaced a deleted pod in 1.1 s but not its files, and an idle pod took 31.4 s to stop until PID 1 handled SIGTERM. |
+| [0009](journal/0009-a-service-sends-you-to-any-pod.md) | A Service sends you to any pod | A Service spread 60 connections 29/31 across two pods — fine for copies, but for workspaces half would reach someone else's project. |
 
 ## Decisions (ADRs)
 
@@ -62,6 +63,10 @@ part of the record too.
 | What | Why not now | When |
 |---|---|---|
 | Sign-in as its own service | Only one server checks sessions today, so a split would be a guess about where the boundary is. | Phase 7, when the gateway has to check sessions itself. |
+| Cleaning up leaked containers | Needs a loop that compares what should exist with what does (journal 0005). | Phase 6, the orchestrator. |
+| Reaching one specific workspace | A Service picks any pod; a workspace needs *its* pod (journal 0009). | Phase 7, a lookup table and a gateway. |
+| Keeping files when a pod dies | A replacement pod starts empty (journal 0008). | Phase 8, snapshots to S3. |
+| Only one pod per project at a time | A Deployment starts the new pod before the old one stops (journal 0008). | Phase 8, "exactly one writer". |
 
 ## Words you'll run into
 
@@ -81,5 +86,7 @@ part of the record too.
 | **Migration** | A small SQL file that changes the database's structure, applied in order. |
 | **Pod** | Kubernetes' smallest unit: one or more containers that start, run and die together. |
 | **Deployment** | A Kubernetes request like "always keep 1 of this pod running". If the pod dies, a new one is made from the template. |
+| **Service** | One fixed name and address for a group of pods, chosen by label. Sends each new connection to any one of them. |
+| **Load balancing vs routing** | Balancing spreads work over identical copies. Routing sends you to one *specific* place. Workspaces need routing. |
 | **PID 1** | The first process in a container. It must handle SIGTERM itself, or stopping the container waits out the whole grace period. |
 | **Trust boundary** | The line between code we trust (the server) and code we don't (whatever you type). |
