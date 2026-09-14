@@ -47,6 +47,7 @@ part of the record too.
 | [0005](journal/0005-session-container-outlives-its-server.md) | A session container outlives its server | Server restarts orphaned 12 of 16 terminal containers; the fix is a reconciliation loop, not better cleanup-on-exit. |
 | [0006](journal/0006-terminal-passed-every-test-but-the-browser.md) | Passed every test but the browser | Six bugs hid behind a scripted test that wasn't the browser; the test has to take the user's path. |
 | [0007](journal/0007-trusted-server-followed-links-the-sandbox-made.md) | The server followed the sandbox's links | The trusted server was writing into a folder the sandbox could plant symlinks in — a trust boundary crossed by accident. |
+| [0008](journal/0008-reconciliation-restores-pods-not-their-state.md) | A pod comes back, its files don't | Kubernetes replaced a deleted pod in 1.1 s but not its files, and an idle pod took 31.4 s to stop until PID 1 handled SIGTERM. |
 
 ## Decisions (ADRs)
 
@@ -78,4 +79,7 @@ part of the record too.
 | **Authorization (authz)** | Checking *whether you're allowed* to touch one specific thing, like a project. |
 | **Session** | The server's record that you signed in. Deleting it signs you out. |
 | **Migration** | A small SQL file that changes the database's structure, applied in order. |
+| **Pod** | Kubernetes' smallest unit: one or more containers that start, run and die together. |
+| **Deployment** | A Kubernetes request like "always keep 1 of this pod running". If the pod dies, a new one is made from the template. |
+| **PID 1** | The first process in a container. It must handle SIGTERM itself, or stopping the container waits out the whole grace period. |
 | **Trust boundary** | The line between code we trust (the server) and code we don't (whatever you type). |

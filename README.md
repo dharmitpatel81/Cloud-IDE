@@ -187,6 +187,7 @@ Each phase built the obvious thing, broke it, and fixed what broke:
 | 4 | A real terminal | Server restarts orphaned 12 of 16 terminal containers | What outlives its process needs a reconciler ([0005](docs/journal/0005-session-container-outlives-its-server.md)) |
 | 4 | The terminal, in a browser | Six bugs a scripted test couldn't see | A test proves only what it exercises ([0006](docs/journal/0006-terminal-passed-every-test-but-the-browser.md)) |
 | 4 | Syncing the terminal's folder | The trusted server followed paths the sandbox could plant links in | Keep the trusted side out of what the untrusted side writes ([0007](docs/journal/0007-trusted-server-followed-links-the-sandbox-made.md)) |
+| 5 | Pods and Deployments by hand, on kind | A deleted pod came back in 1.1 s, but its files didn't; an idle pod took 31.4 s to stop | Kubernetes restores the template, not the state; PID 1 must handle SIGTERM ([0008](docs/journal/0008-reconciliation-restores-pods-not-their-state.md)) |
 
 **Current phase: 5.** Kubernetes locally, by hand: pods, Deployments, and
 watching a reconciliation loop bring back what you delete.
