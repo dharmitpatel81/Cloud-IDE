@@ -1,3 +1,6 @@
+# Journal 0008, experiment 1: a bare pod. Delete it and nothing recreates it.
+# Kept as the "before": plain `sleep` as PID 1 ignores SIGTERM, so deleting
+# this pod takes the full 30 s grace period. deployment.yaml has the fix.
 apiVersion: v1
 kind: Pod
 metadata:

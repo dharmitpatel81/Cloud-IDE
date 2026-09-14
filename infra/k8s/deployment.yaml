@@ -1,3 +1,5 @@
+# Journal 0008, experiment 2: the same pod inside a Deployment. Delete the pod
+# and a new one is made from the template (1.1 s) — without the old one's files.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
